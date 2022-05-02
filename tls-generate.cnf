@@ -1,0 +1,38 @@
+# unnamed section of generic options
+default_md = md5
+
+# default section for "req" command options
+[req]
+input_password     = yourcompany
+prompt             = yes
+distinguished_name = localhost
+
+[localhost]
+
+# Minimum of 4 bytes are needed for common name
+commonName         = Common Name
+commonName_default = yourcompany.com CA
+
+# ISO2 country code only
+countryName         = Country Name
+countryName_default = US
+
+# State is optional, no minimum limit
+stateOrProvinceName         = State
+stateOrProvinceName_default = NY
+
+# City is required
+localityName         = City
+localityName_default = A place
+
+# Organization is optional
+organizationName         = Organization
+organizationName_default = yourcompany.com
+
+# Organization Unit is optional
+organizationalUnitName         = Department
+organizationalUnitName_default = IT
+
+# Email is optional
+emailAddress         = Email
+emailAddress_default = ca@yourcompany.com
