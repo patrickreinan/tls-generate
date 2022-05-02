@@ -1,31 +1,91 @@
-DESTINATION="./tls"
+destination="./tls"
+privateKeyPath="$destination/private.key"
+publicKeyPath="$destination/public.key"
+reqcsrPath="$destination/cert-req.csr"
+cnfPath="$destination/tls-generate.cnf"
+crtPath="$destination/cert.crt"
+pfxPath="$destination/cert.pfx"
 
-if [ -z $KEY ]
-then
-    KEY="default-key"
-fi
+KEY=
+DAYS=
+STATE=
+CITY=
+COUNTRY=
+CN=
 
-if [ -z $DAYS ]
-then
-    DAYS=365
-fi
+loadDefaults() {
 
-echo "KEY=$KEY"
-echo "DAYS=$DAYS"
+    if [ -z $KEY ]
+    then
+        KEY="default-key"
+    fi
+
+    if [ -z $DAYS ]
+    then
+        DAYS=365
+    fi
+
+    if [ -z $STATE ]
+    then
+        STATE=SP
+    fi
+
+    if [ -z $CITY ]
+    then
+        CITY=SaoPaulo
+    fi
+
+    if [ -z $COUNTRY ]
+    then
+        COUNTRY=BR
+    fi
+
+    if [ -z $CN ] 
+    then
+        CN=localhost
+    fi
+
+}
+
+prepareDestination() {
+    rm -rf $destination
+    mkdir $destination
+}
+
+generateConfig() {
+ 
+    
+   
+    cat tls-generate.cnf \
+    | sed  "s/%CN/$CN/g" \
+    | sed "s/%COUNTRY/$COUNTRY/g" \
+    | sed "s/%STATE/$STATE/g" \
+    | sed "s/%CITY/$CITY/g" \
+    >$cnfPath
+    
+}
+
+generateCert() {
+    
+
+    echo "Generating private key"
+    openssl genrsa -out $privateKeyPath 2048
+    echo "Generating public key"
+    openssl rsa -in $privateKeyPath -pubout -out $publicKeyPath
+    echo "Generating csr"
+    openssl req -new -key $privateKeyPath -out $reqcsrPath -config $cnfPath -batch
+    echo "Generating crt"
+    openssl x509 -in $reqcsrPath -out $crtPath -req -signkey $privateKeyPath -days $DAYS
+    echo "Generating pfx"
+    openssl pkcs12 -export -inkey $privateKeyPath -out $pfxPath  -in $crtPath -passin pass:$KEY -password pass:$KEY
+
+    rm $cnfPath
+
+}
 
 
 
-rm -rf $DESTINATION
-mkdir $DESTINATION
-
-
-echo "Generating private key"
-openssl genrsa -out $DESTINATION/private.key 2048
-echo "Generating public key"
-openssl rsa -in $DESTINATION/private.key -pubout -out $DESTINATION/public.key
-echo "Generating pem"
-openssl req -new -key $DESTINATION/private.key -out $DESTINATION/cert-req.pem -batch ###-config tls-generate.cnf
-echo "Generating crt"
-openssl x509 -in $DESTINATION/cert-req.pem -out $DESTINATION/cert.crt -req -signkey $DESTINATION/private.key -days $DAYS
-echo "Generating pfx"
-openssl pkcs12 -export -inkey $DESTINATION/private.key -out $DESTINATION/cert.pfx  -in $DESTINATION/cert.crt -passin pass:$KEY -password pass:$KEY
+loadDefaults
+prepareDestination
+generateConfig
+generateCert
