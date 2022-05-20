@@ -1,10 +1,12 @@
-destination="./tls"
-privateKeyPath="$destination/private.key"
-publicKeyPath="$destination/public.key"
-reqcsrPath="$destination/cert-req.csr"
-cnfPath="$destination/tls-generate.cnf"
-crtPath="$destination/cert.crt"
-pfxPath="$destination/cert.pfx"
+
+
+
+destination=
+domainPath=
+caKeyPath=
+caPEMPath=
+caSerial=
+cnfPath=
 
 KEY=
 DAYS=
@@ -15,6 +17,7 @@ CN=
 
 loadDefaults() {
 
+    
     if [ -z $KEY ]
     then
         KEY="default-key"
@@ -42,14 +45,32 @@ loadDefaults() {
 
     if [ -z $CN ] 
     then
-        CN=localhost
+        CN=$DOMAIN
     fi
+
+    destination="./tls"
+    domainRoot="$destination/$DOMAIN"
+    domainPath="$domainRoot/$DOMAIN"
+    cnfPath="$domainRoot/tls-generate.cnf"
+    caKeyPath="$destination/ca.key"
+    caPEMPath="$destination/ca.pem"
+    caSerial="$destination/ca.srl"
 
 }
 
+checkArgs() {
+    if [ -z $DOMAIN ]
+    then
+        echo "Invalid DOMAIN"
+        exit 1
+    fi
+}
+
 prepareDestination() {
-    rm -rf $destination
-    mkdir $destination
+    rm -rf $domainRoot
+    mkdir -p $destination
+    mkdir -p $domainRoot
+
 }
 
 generateConfig() {
@@ -64,28 +85,39 @@ generateConfig() {
     >$cnfPath
     
 }
-
 generateCert() {
+
+    if [ ! -f "$caKeyPath" ] || [ ! -f "$caPEMPath" ] 
+    then
+        openssl genrsa -des3  -passout pass:$KEY -out $caKeyPath 2048
+        openssl req -x509 -new -nodes -key $caKeyPath -sha256 -days $DAYS -out $caPEMPath -config $cnfPath -batch -passin pass:$KEY
+    fi
+
+    openssl genrsa -out $domainPath.key 2048
+    openssl req -new -key $domainPath.key -out $domainPath.csr -config $cnfPath -batch 
+
+    cat > $domainPath.ext \
+     << EOF
+        authorityKeyIdentifier=keyid,issuer
+        basicConstraints=CA:FALSE
+        keyUsage = digitalSignature, nonRepudiation, keyEncipherment, dataEncipherment
+        subjectAltName = @alt_names
+        [alt_names]
+        DNS.1 = $domainPath
+EOF
     
-
-    echo "Generating private key"
-    openssl genrsa -out $privateKeyPath 2048
-    echo "Generating public key"
-    openssl rsa -in $privateKeyPath -pubout -out $publicKeyPath
-    echo "Generating csr"
-    openssl req -new -key $privateKeyPath -out $reqcsrPath -config $cnfPath -batch
-    echo "Generating crt"
-    openssl x509 -in $reqcsrPath -out $crtPath -req -signkey $privateKeyPath -days $DAYS
-    echo "Generating pfx"
-    openssl pkcs12 -export -inkey $privateKeyPath -out $pfxPath  -in $crtPath -passin pass:$KEY -password pass:$KEY
-
-    rm $cnfPath
-
+    openssl x509 -req -in $domainPath.csr -CA $caPEMPath -CAkey $caKeyPath \
+    -CAcreateserial -CAserial $caSerial -out $domainPath.crt -days $DAYS -sha256 -extfile $domainPath.ext  -passin pass:$KEY 
 }
 
+cleanup() {
+    rm -rf $cnfPath
+}
 
-
+clear
+checkArgs 
 loadDefaults
 prepareDestination
 generateConfig
-generateCert
+generateCert 
+cleanup
