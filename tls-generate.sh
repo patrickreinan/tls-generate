@@ -3,6 +3,7 @@
 
 destination=
 domainPath=
+extFile=
 caKeyPath=
 caPEMPath=
 caSerial=
@@ -52,9 +53,9 @@ loadDefaults() {
     domainRoot="$destination/$DOMAIN"
     domainPath="$domainRoot/$DOMAIN"
     cnfPath="$domainRoot/tls-generate.cnf"
-    caKeyPath="$destination/ca.key"
-    caPEMPath="$destination/ca.pem"
-    caSerial="$destination/ca.srl"
+    caKeyPath="$domainRoot/$DOMAIN-ca.key"
+    caPEMPath="$domainRoot/$DOMAIN-ca.pem"
+    caSerial="$domainRoot/$DOMAIN-ca.srl"
 
 }
 
@@ -80,19 +81,17 @@ generateCert() {
 
     generateConfig default-ca
 
-    if [ ! -f "$caKeyPath" ] || [ ! -f "$caPEMPath" ] 
-    then
-        openssl genrsa -des3  -passout pass:$KEY -out $caKeyPath 2048
-        openssl req -x509 -new -nodes -key $caKeyPath -sha256 -days $DAYS -out $caPEMPath -config $cnfPath -batch -passin pass:$KEY
-    fi
+    openssl genrsa -des3  -passout pass:$KEY -out $caKeyPath 2048
+    openssl req -x509 -new -nodes -key $caKeyPath -sha256 -days $DAYS -out $caPEMPath -config $cnfPath -batch -passin pass:$KEY
 
     generateConfig $DOMAIN
 
     openssl genrsa -out $domainPath.key 2048
     openssl req -new -key $domainPath.key -out $domainPath.csr -config $cnfPath -batch 
 
+    extFile=$domainPath.ext
 
-    cat > $domainPath.ext \
+    cat > $extFile \
      << EOF
         authorityKeyIdentifier=keyid,issuer
         basicConstraints=CA:FALSE
@@ -103,15 +102,18 @@ generateCert() {
 EOF
     
     openssl x509 -req -in $domainPath.csr -CA $caPEMPath -CAkey $caKeyPath \
-    -CAcreateserial -CAserial $caSerial -out $domainPath.crt -days $DAYS -sha256 -extfile $domainPath.ext  -passin pass:$KEY 
+    -CAcreateserial -CAserial $caSerial -out $domainPath.crt -days $DAYS -sha256 -extfile $extFile  -passin pass:$KEY 
    
     openssl pkcs12 -inkey $domainPath.key -in $domainPath.crt -export -out $domainPath.pfx  -passout pass:$KEY 
 
-    #cat $domainPath.crt $caPEMPath >> $domainPath-bundle.crt
+
+
 }
 
 cleanup() {
     rm -rf $cnfPath
+    rm $caSerial
+    rm $extFile
 }
 
 clear 
