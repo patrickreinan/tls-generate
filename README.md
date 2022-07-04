@@ -1,7 +1,7 @@
 # TLS Generate
 
 ## Overview
-Bash script used to create a CA and domain certificates 
+Bash script used to create CA and domain certificates 
 
 ## How to use
 ```bash
