@@ -1,7 +1,7 @@
 # TLS Generate
 
 ## Overview
-Bash script used to create a CA (once) and domain certificates (multi)
+Bash script used to create a CA and domain certificates 
 
 ## How to use
 ```bash
